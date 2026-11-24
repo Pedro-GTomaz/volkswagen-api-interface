@@ -72,6 +72,6 @@ app.MapDelete("/api/carros/{id:int}", (int id) =>
 
 app.Run();
 
-
+////tesre
 record CarrosDto(int Id, string Nome,double preco);
 record CarrosEntradaDto(string Nome);
