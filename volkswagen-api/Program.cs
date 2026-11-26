@@ -1,27 +1,40 @@
+using Microsoft.EntityFrameworkCore;
+using VolkswagenApi.Models;
+using VolkswagenApi.Dtos;
+using VolkswagenApi.Data;
+
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddDbContext<ApiDbContext>(options =>
+    options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
+
 var app = builder.Build();
+
+app.UseExceptionHandler(errorApp =>
+{
+    errorApp.Run(async context =>
+    {
+        context.Response.StatusCode = StatusCodes.Status500InternalServerError;
+        context.Response.ContentType = "application/json";
+
+        await context.Response.WriteAsJsonAsync(new
+        {
+            mensagem = "Ocorreu um erro interno. Tente novamente mais tarde."
+        });
+    });
+});
 
 // Disponibiliza a interface em /index.html, junto da API.
 app.UseStaticFiles();
 
-//Criar nossa lista
-var Volkswagen = new List<CarrosDto>
-{
-    new CarrosDto(1, "Gol", 75.990),
-    new CarrosDto(2, "Voyage" , 85.990),
-};
-
-
 app.MapGet("/", () => "Sistema no ar! Acesse /api/carros/ para ver a lista de carros.");
 
-app.MapGet("/api/carros", () =>
-{
-    return Results.Ok(Volkswagen);
-});
+app.MapGet("/api/carros", async (ApiDbContext db) =>
+    await db.Carros.ToListAsync());
 
-app.MapGet("/api/carros/{id:int}", (int id) =>
+app.MapGet("/api/carros/{id:int}", async (int id, ApiDbContext db) =>
 {
-    var carro = Volkswagen.Find(carroDaLista => carroDaLista.Id == id);
+    var carro = await db.Carros.FindAsync(id);
 
     if (carro is null)
     {
@@ -31,47 +44,53 @@ app.MapGet("/api/carros/{id:int}", (int id) =>
     return Results.Ok(carro);
 });
 
-app.MapPost("/api/carros", (CarrosEntradaDto dados) =>
+app.MapPost("/api/carros", async (CarrosEntradaDto dados, ApiDbContext db) =>
 {
-    int proximoId = Volkswagen.Count + 1;
+    var carro = new CarroEntity
+    {
+        Nome = dados.Nome,
+        Preco = dados.Preco
+    };
 
-    var novoCarro = new CarrosDto(proximoId, dados.Nome, 0.0);
+    db.Carros.Add(carro);
 
-    Volkswagen.Add(novoCarro);
+    await db.SaveChangesAsync();
 
-    return Results.Created($"/api/carros/{novoCarro.Id}", novoCarro);
-
+    return Results.Created($"/api/carros/{carro.Id}", carro);
 });
 
 
-app.MapPut("/api/carros/{id:int}", (int id, CarrosEntradaDto dados) => 
+app.MapPut("/api/carros/{id:int}", async  (int id, CarrosEntradaDto dados, ApiDbContext db) => 
 {
-    int indice = Volkswagen.FindIndex(carroDaLista => carroDaLista.Id == id);
-    if(indice == -1)
+    var carro = await db.Carros.FindAsync(id);
+    if(carro is null)
     {
         return Results.NotFound();
     }
 
-    var carroAtualizado = new CarrosDto(id, dados.Nome, 0.0);
+    carro.Nome = dados.Nome;
+    carro.Preco = dados.Preco;
+    await db.SaveChangesAsync();
 
-    Volkswagen[indice] = carroAtualizado;
-
-    return Results.Ok(carroAtualizado);
+    return Results.Ok(carro);
 });
 
-app.MapDelete("/api/carros/{id:int}", (int id) => 
+app.MapDelete("/api/carros/{id:int}", async (int id, ApiDbContext db) =>
 {
-    int indice = Volkswagen.FindIndex(carroDaLista => carroDaLista.Id == id);
-    if(indice == -1)
+    var carro = await db.Carros.FindAsync(id);
+
+    if (carro is null)
     {
         return Results.NotFound();
     }
-    Volkswagen.RemoveAt(indice);
+
+    db.Carros.Remove(carro);
+
+    await db.SaveChangesAsync();
+
     return Results.NoContent();
 });
 
+
 app.Run();
 
-////tesre
-record CarrosDto(int Id, string Nome,double preco);
-record CarrosEntradaDto(string Nome);

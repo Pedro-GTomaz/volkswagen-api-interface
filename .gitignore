@@ -2,3 +2,6 @@ bin/
 obj/
 .vs/
 *.userdesktop.ini
+*.db
+*.db-shm
+*.db-wal

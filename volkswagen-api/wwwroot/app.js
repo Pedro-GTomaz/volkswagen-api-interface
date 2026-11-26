@@ -88,6 +88,7 @@ function openEditor(car = null) {
   editingId = car ? car.id : null;
   $('#edit-title').textContent = car ? 'Editar veículo' : 'Novo veículo';
   $('#car-name').value = car ? car.nome : '';
+  $('#car-price').value = car ? car.preco : '';
   $('#edit-error').textContent = '';
   $('#editor').showModal(); $('#car-name').focus();
 }
@@ -104,6 +105,11 @@ function lockDialog(dialog, locked) {
 $('#edit-form').addEventListener('submit', async event => {
   event.preventDefault();
   const nome = $('#car-name').value.trim();
+  const preco = Number($('#car-price').value);
+  if (!Number.isFinite(preco) || preco <= 0) {
+  $('#edit-error').textContent = 'Informe um preço válido.';
+  return;
+}
   if (!nome) { $('#edit-error').textContent = 'Informe o nome do veículo.'; return; }
   const dialog = $('#editor'); lockDialog(dialog,true);
   $('#edit-error').textContent = '';
@@ -112,7 +118,7 @@ $('#edit-form').addEventListener('submit', async event => {
     await request(editing ? '/' + editingId : '', {
       method: editing ? 'PUT' : 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ nome }) // CarrosEntradaDto(string Nome)
+      body: JSON.stringify({ nome, preco })
     });
     dialog.close();
     await loadCars(editing ? 'Veículo atualizado.' : 'Veículo cadastrado.');
